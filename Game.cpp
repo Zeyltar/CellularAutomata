@@ -7,13 +7,15 @@
 namespace game
 {
 	Game::Game()
-	{		
+	{
+		m_frameRate = FRAME_RATE_LIMIT;
+		isRunning = false;
 	}
 
 	void Game::Start()
 	{
 		m_window.create(sf::VideoMode(SCREEN_WIDTH, SCREEN_HEIGHT), "CellularAutomata!");
-		m_window.setFramerateLimit(FRAME_RATE_LIMIT);
+		m_window.setFramerateLimit(m_frameRate);
 		
 		m_output = new int[ScreenWidth() * ScreenHeight()];
 		m_state = new int[ScreenWidth() * ScreenHeight()];
@@ -31,8 +33,13 @@ namespace game
 				p++;
 			}
 		};
+		for (int i = 0; i < ScreenWidth() * ScreenHeight(); i++)
+		{
+			m_state[i] = rand() % 2;
+		}
+		//set(10, ScreenHeight() / 2, L"########-#####---###------######-#####");
 
-		set(10, ScreenHeight() / 2, L"########-#####---###------######-#####");
+		isRunning = true;
 		Update();
 	}
 
@@ -45,11 +52,34 @@ namespace game
 			{
 				if (event.type == sf::Event::Closed)
 					m_window.close();
-				
+
+				// Inputs
+				if (sf::Keyboard::isKeyPressed(sf::Keyboard::Add))
+				{
+					m_frameRate += m_frameRate + 5 < 200 ? 5 : 0;
+					m_window.setFramerateLimit(m_frameRate);
+				}
+				else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Subtract))
+				{
+					m_frameRate -= m_frameRate - 5 > 0 ? 5 : 0;
+					m_window.setFramerateLimit(m_frameRate);
+				}
+				else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space))
+				{
+					isRunning = !isRunning;
+					std::this_thread::sleep_for(std::chrono::milliseconds(250));
+				}
 			}
-			m_window.clear(sf::Color::Magenta);
-			UpdateGame();
-			m_window.display();
+
+			if (isRunning)
+			{
+				m_window.clear(sf::Color::Magenta);
+				UpdateGame();
+				m_window.display();
+			}
+			else
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
 		}
 	}
 

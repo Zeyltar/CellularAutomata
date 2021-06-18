@@ -10,6 +10,7 @@ namespace game
 	{
 		m_frameRate = FRAME_RATE_LIMIT;
 		isRunning = false;
+		m_previousMousePos = sf::Vector2i(0, 0);
 	}
 
 	void Game::Start()
@@ -33,10 +34,11 @@ namespace game
 				p++;
 			}
 		};
-		for (int i = 0; i < ScreenWidth() * ScreenHeight(); i++)
-		{
-			m_state[i] = rand() % 2;
-		}
+		
+		for (int x = 1; x < ScreenWidth() - 1; x++)
+			for (int y = 1; y < ScreenHeight() - 1; y++)
+				m_state[y * ScreenWidth() + x] = rand() % 2;
+				
 		//set(10, ScreenHeight() / 2, L"########-#####---###------######-#####");
 
 		isRunning = true;
@@ -65,21 +67,33 @@ namespace game
 					m_window.setFramerateLimit(m_frameRate);
 				}
 				else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space))
+					PauseGame();
+				else if (!isRunning && sf::Mouse::isButtonPressed(sf::Mouse::Left))
 				{
-					isRunning = !isRunning;
-					std::this_thread::sleep_for(std::chrono::milliseconds(250));
+					sf::Vector2i mousePos = sf::Mouse::getPosition(m_window);
+
+					if (mousePos.x < SCREEN_WIDTH - PIXEL_SIZE && mousePos.x - PIXEL_SIZE > 0 && mousePos.y < SCREEN_HEIGHT - PIXEL_SIZE && mousePos.y - PIXEL_SIZE >= 0)
+					{
+						if (mousePos != m_previousMousePos)
+						{
+							EditCell((mousePos.x / PIXEL_SIZE), (mousePos.y / PIXEL_SIZE));
+							m_previousMousePos = mousePos;
+							std::this_thread::sleep_for(std::chrono::milliseconds(25));
+						}
+					}
 				}
+				else if (!isRunning && (sf::Keyboard::isKeyPressed(sf::Keyboard::F)))
+					ClearCells();
 			}
 
 			if (isRunning)
 			{
 				m_window.clear(sf::Color::Magenta);
-				UpdateGame();
+				UpdateGame();				
 				m_window.display();
 			}
 			else
 				std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
 		}
 	}
 
@@ -110,18 +124,120 @@ namespace game
 
 				if (cell(x, y) == 1)
 				{
-					sf::RectangleShape pixel = sf::RectangleShape(sf::Vector2f(1.0f * PIXEL_SIZE, 1.0f * PIXEL_SIZE));
+					sf::RectangleShape pixel = sf::RectangleShape(sf::Vector2f((float)PIXEL_SIZE, (float)PIXEL_SIZE));
 					pixel.setPosition((float)x * PIXEL_SIZE, (float)y * PIXEL_SIZE);
 					pixel.setFillColor(sf::Color::White);
 					m_window.draw(pixel);
 				}
 				else
 				{
-					sf::RectangleShape pixel = sf::RectangleShape(sf::Vector2f(1.0f * PIXEL_SIZE, 1.0f * PIXEL_SIZE));
+					sf::RectangleShape pixel = sf::RectangleShape(sf::Vector2f((float)PIXEL_SIZE, (float)PIXEL_SIZE));
 					pixel.setPosition((float)x * PIXEL_SIZE, (float)y * PIXEL_SIZE);
 					pixel.setFillColor(sf::Color::Black);
 					m_window.draw(pixel);
 				}				
 			}
+	}
+
+	void Game::PauseGame()
+	{
+		isRunning = !isRunning;
+
+		if (!isRunning)
+		{
+			m_window.clear(sf::Color::Red);
+
+			auto cell = [&](int x, int y)
+			{
+				return m_output[y * ScreenWidth() + x];
+			};
+
+			for (int i = 0; i < ScreenWidth() * ScreenHeight(); i++)
+				m_output[i] = m_state[i];
+
+			for (int x = 1; x < ScreenWidth() - 1; x++)
+				for (int y = 1; y < ScreenHeight() - 1; y++)
+				{
+					if (cell(x, y) == 1)
+					{
+						sf::RectangleShape pixel = sf::RectangleShape(sf::Vector2f((float)PIXEL_SIZE, (float)PIXEL_SIZE));
+						pixel.setPosition((float)x * PIXEL_SIZE, (float)y * PIXEL_SIZE);
+						pixel.setFillColor(sf::Color::White);
+						m_window.draw(pixel);
+					}
+					else
+					{
+						sf::RectangleShape pixel = sf::RectangleShape(sf::Vector2f((float)PIXEL_SIZE, (float)PIXEL_SIZE));
+						pixel.setPosition((float)x * PIXEL_SIZE, (float)y * PIXEL_SIZE);
+						pixel.setFillColor(sf::Color::Black);
+						m_window.draw(pixel);
+					}
+				}
+			m_window.display();
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(250));
+	}
+
+	void Game::EditCell(int x, int y)
+	{
+		auto cell = [&](int x, int y)
+		{
+			return m_output[y * ScreenWidth() + x];
+		};
+
+		if (cell(x, y) == 1)
+			m_state[y * ScreenWidth() + x] = 0;
+		else
+			m_state[y * ScreenWidth() + x] = 1;
+
+		m_window.clear(sf::Color::Red);
+
+		for (int i = 0; i < ScreenWidth() * ScreenHeight(); i++)
+			m_output[i] = m_state[i];
+
+		for (int x = 1; x < ScreenWidth() - 1; x++)
+			for (int y = 1; y < ScreenHeight() - 1; y++)
+			{			
+				if (cell(x, y) == 1)
+				{
+					sf::RectangleShape pixel = sf::RectangleShape(sf::Vector2f((float)PIXEL_SIZE, (float)PIXEL_SIZE));
+					pixel.setPosition((float)x * PIXEL_SIZE, (float)y * PIXEL_SIZE);
+					pixel.setFillColor(sf::Color::White);
+					m_window.draw(pixel);
+				}
+				else
+				{
+					sf::RectangleShape pixel = sf::RectangleShape(sf::Vector2f((float)PIXEL_SIZE, (float)PIXEL_SIZE));
+					pixel.setPosition((float)x * PIXEL_SIZE, (float)y * PIXEL_SIZE);
+					pixel.setFillColor(sf::Color::Black);
+					m_window.draw(pixel);
+				}				
+			}		
+		m_window.display();
+	}
+
+	void Game::ClearCells()
+	{
+		auto cell = [&](int x, int y)
+		{
+			return m_output[y * ScreenWidth() + x];
+		};
+
+		m_window.clear(sf::Color::Green);
+
+		for (int i = 0; i < ScreenWidth() * ScreenHeight(); i++)
+			m_output[i] = m_state[i];
+
+		for (int x = 1; x < ScreenWidth() - 1; x++)
+			for (int y = 1; y < ScreenHeight() - 1; y++)
+			{
+				m_state[y * ScreenWidth() + x] = 0;
+
+				sf::RectangleShape pixel = sf::RectangleShape(sf::Vector2f((float)PIXEL_SIZE, (float)PIXEL_SIZE));
+				pixel.setPosition((float)x * PIXEL_SIZE, (float)y * PIXEL_SIZE);
+				pixel.setFillColor(sf::Color::Black);
+				m_window.draw(pixel);				
+			}
+		m_window.display();
 	}
 }
